@@ -1,0 +1,4 @@
+requests
+openpyxl
+boto3
+urllib3
