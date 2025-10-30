@@ -2,7 +2,7 @@ name: NSE R2 PDF Downloader @ 9 AM IST
 
 on:
   schedule:
-    - cron: "32 15 * * *"   # 9:00 AM IST (03:30 UTC)
+    - cron: "2 15 * * *"   # 9:00 AM IST (03:30 UTC)
   workflow_dispatch: {}
 
 jobs:
