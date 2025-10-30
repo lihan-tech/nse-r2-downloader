@@ -1,0 +1,72 @@
+name: NSE R2 PDF Downloader @ 9 AM IST
+
+on:
+  schedule:
+    - cron: "30 3 * * *"   # 9:00 AM IST (03:30 UTC)
+  workflow_dispatch: {}
+
+jobs:
+  nse-r2-download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run NSE R2 PDF Downloader
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+        run: python NSE_R2_PDF_Downloader.py
+
+      - name: Upload log file as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NSE_R2_logs
+          path: output/log_*.txt
+          retention-days: 14
+
+      - name: Send Telegram summary
+        if: always()   # run even if the job fails
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if ls output/log_*.txt 1> /dev/null 2>&1; then
+            FILE=$(ls -t output/log_*.txt | head -n 1)
+          else
+            FILE=""
+          fi
+
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS="✅ NSE R2 PDF Downloader completed successfully"
+          else
+            STATUS="❌ NSE R2 PDF Downloader encountered an error"
+          fi
+
+          TIME=$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M:%S IST')
+          MSG="${STATUS} at ${TIME}"
+
+          if [ -n "$FILE" ]; then
+            curl -s -X POST \
+              "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument" \
+              -F chat_id="${TG_CHAT_ID}" \
+              -F caption="${MSG}" \
+              -F document="@${FILE}"
+          else
+            curl -s -X POST \
+              "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d chat_id="${TG_CHAT_ID}" \
+              -d text="${MSG}"
+          fi
